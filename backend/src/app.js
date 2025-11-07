@@ -16,6 +16,7 @@ const stockInRoutes = require('./routes/stockInRoutes');
 const stockOutRoutes = require('./routes/stockOutRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const stockTransactionRoutes = require('./routes/stockTransactionRoutes');
 
 const app = express();
 
@@ -87,6 +88,7 @@ app.use('/api/stock-ins', stockInRoutes);
 app.use('/api/stock-outs', stockOutRoutes);
 app.use('/api/inventory-checks', inventoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/stock-transactions', stockTransactionRoutes);
 
 // Error handler middleware (phải để cuối cùng)
 app.use(errorHandler);
