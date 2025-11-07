@@ -12,6 +12,7 @@ const {
   getOutOfStockProducts,
   getProductsByCategory,
 } = require('../controllers/productController');
+const { createProduct: validateCreateProduct, updateProduct: validateUpdateProduct } = require('../validators/productValidator');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 const { uploadMultiple } = require('../middlewares/uploadMiddleware');
@@ -26,8 +27,8 @@ router.get('/category/:categoryId', getProductsByCategory);
 router.get('/:id', getProductById);
 
 // 🛠️ Tạo, cập nhật, xóa sản phẩm (Admin hoặc Quản lý kho)
-router.post('/', authorize('admin', 'warehouse_manager'), createProduct);
-router.put('/:id', authorize('admin', 'warehouse_manager'), updateProduct);
+router.post('/', authorize('admin', 'warehouse_manager'), validateCreateProduct, createProduct);
+router.put('/:id', authorize('admin', 'warehouse_manager'), validateUpdateProduct, updateProduct);
 router.delete('/:id', authorize('admin', 'warehouse_manager'), deleteProduct);
 
 // 🖼️ Quản lý ảnh sản phẩm (Admin hoặc Quản lý kho)

@@ -9,6 +9,7 @@ const {
   cancelStockOut,
   deleteStockOut,
 } = require('../controllers/stockOutController');
+const { createStockOut: validateCreateStockOut } = require('../validators/stockValidator');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 
@@ -19,7 +20,7 @@ router.use(protect);
 router
   .route('/')
   .get(getStockOuts)
-  .post(authorize('admin', 'warehouse_manager', 'warehouse_staff'), createStockOut);
+  .post(authorize('admin', 'warehouse_manager', 'warehouse_staff'), validateCreateStockOut, createStockOut);
 
 // 🔍 Chi tiết, cập nhật, xóa phiếu
 router

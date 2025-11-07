@@ -9,6 +9,7 @@ const {
   cancelStockIn,
   deleteStockIn,
 } = require('../controllers/stockInController');
+const { createStockIn: validateCreateStockIn } = require('../validators/stockValidator');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 
@@ -19,7 +20,7 @@ router.use(protect);
 router
   .route('/')
   .get(authorize('admin', 'warehouse_manager', 'warehouse_staff'), getStockIns)
-  .post(authorize('admin', 'warehouse_manager', 'warehouse_staff'), createStockIn);
+  .post(authorize('admin', 'warehouse_manager', 'warehouse_staff'), validateCreateStockIn, createStockIn);
 
 router
   .route('/:id')

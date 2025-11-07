@@ -7,11 +7,12 @@ const {
   changePassword,
   updateProfile,
 } = require('../controllers/authController');
+const { register: validateRegister, login: validateLogin } = require('../validators/authValidator');
 const { protect } = require('../middlewares/authMiddleware');
 
 // Public routes
-router.post('/register', register);
-router.post('/login', login);
+router.post('/register', validateRegister, register);
+router.post('/login', validateLogin, login);
 
 // Protected routes
 router.get('/me', protect, getMe);
