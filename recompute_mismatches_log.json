@@ -1,0 +1,41 @@
+{
+  "updated": [
+    {
+      "productId": "691015bc3087c61274e3c8b1",
+      "name": "Rau cải xanh",
+      "before": 30,
+      "after": 31
+    },
+    {
+      "productId": "691015bc3087c61274e3c8b2",
+      "name": "Cà chua Đà Lạt",
+      "before": 90,
+      "after": 180
+    },
+    {
+      "productId": "691015bc3087c61274e3c8bd",
+      "name": "Cá viên CP",
+      "before": 340,
+      "after": 640
+    },
+    {
+      "productId": "691015bc3087c61274e3c8c2",
+      "name": "Xúc xích tiệt trùng CP",
+      "before": 300,
+      "after": 550
+    },
+    {
+      "productId": "691015bc3087c61274e3c8c3",
+      "name": "Lạp xưởng tươi",
+      "before": 3,
+      "after": 30
+    },
+    {
+      "productId": "691015bc3087c61274e3c8cc",
+      "name": "CocaCola 390ml",
+      "before": 80,
+      "after": 160
+    }
+  ],
+  "timestamp": "2025-11-19T13:16:55.797Z"
+}
