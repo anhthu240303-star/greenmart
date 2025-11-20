@@ -102,6 +102,7 @@ class _InventoryCheckListScreenState
                 items: const [
                   DropdownMenuItem(value: '', child: Text('Tất cả')),
                   DropdownMenuItem(value: 'in_progress', child: Text('Đang thực hiện')),
+                  DropdownMenuItem(value: 'submitted', child: Text('Chờ duyệt')),
                   DropdownMenuItem(value: 'completed', child: Text('Hoàn tất')),
                   DropdownMenuItem(value: 'cancelled', child: Text('Đã hủy')),
                 ],
@@ -148,17 +149,21 @@ class _InventoryCheckListScreenState
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'in_progress':
+        return Colors.orange;
+      case 'submitted':
+        return Colors.orangeAccent;
       case 'completed':
         return Colors.green;
       case 'cancelled':
         return Colors.redAccent;
       default:
-        return Colors.orange;
+        return Colors.grey;
     }
   }
 
   void _filterByStatus() {
-    final statusMap = ['all', 'in_progress', 'completed', 'cancelled'];
+    final statusMap = ['all', 'submitted', 'completed', 'cancelled'];
     final selected = statusMap[_tabController.index];
     setState(() {
       if (selected == 'all') _filtered = List<InventoryCheckModel>.from(_items);
@@ -175,6 +180,10 @@ class _InventoryCheckListScreenState
 
   IconData _statusIcon(String status) {
     switch (status.toLowerCase()) {
+      case 'in_progress':
+        return Icons.play_circle_fill_rounded;
+      case 'submitted':
+        return Icons.hourglass_bottom_rounded;
       case 'completed':
         return Icons.verified_rounded;
       case 'cancelled':
