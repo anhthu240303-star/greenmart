@@ -105,7 +105,7 @@ const getStockInDetailPDF = async (req, res) => {
       const infoY = pdf.doc.y;
       pdf.doc
         .fontSize(8)
-        .font('Arial')
+        .font(pdf.regularFont)
         .fillColor('#666')
         .text(`Nhà cung cấp: ${stockIn.supplier?.name || 'N/A'}`, 50, infoY)
         .text(`Ngày nhập: ${new Date(stockIn.importDate).toLocaleDateString('vi-VN')}`, 50, infoY + 12)
@@ -134,7 +134,7 @@ const getStockInDetailPDF = async (req, res) => {
       // Tổng phiếu
       pdf.doc
         .fontSize(9)
-        .font('Arial-Bold')
+        .font(pdf.boldFont)
         .fillColor('#1a1a1a')
         .text(`Tổng giá trị phiếu: ${new Intl.NumberFormat('vi-VN').format(stockIn.totalAmount)} VND`, 
           50, pdf.doc.y + 10);
@@ -260,7 +260,7 @@ const getStockOutDetailPDF = async (req, res) => {
       const infoY = pdf.doc.y;
       pdf.doc
         .fontSize(8)
-        .font('Arial')
+        .font(pdf.regularFont)
         .fillColor('#666')
         .text(`Loại xuất: ${typeLabels[stockOut.type] || stockOut.type}`, 50, infoY)
         .text(`Ngày xuất: ${new Date(stockOut.issueDate).toLocaleDateString('vi-VN')}`, 50, infoY + 12)
@@ -294,7 +294,7 @@ const getStockOutDetailPDF = async (req, res) => {
       // Tổng phiếu
       pdf.doc
         .fontSize(9)
-        .font('Arial-Bold')
+        .font(pdf.boldFont)
         .fillColor('#1a1a1a')
         .text(`Tổng giá trị phiếu: ${new Intl.NumberFormat('vi-VN').format(stockOut.totalAmount)} VND`, 
           50, pdf.doc.y + 10);

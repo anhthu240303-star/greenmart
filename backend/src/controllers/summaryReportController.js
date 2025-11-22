@@ -3,6 +3,7 @@ const StockIn = require('../models/StockIn');
 const StockOut = require('../models/StockOut');
 const Category = require('../models/Category');
 const BatchLot = require('../models/BatchLot');
+const InventoryCheck = require('../models/InventoryCheck');
 const ApiResponse = require('../utils/response');
 const PDFGenerator = require('../utils/pdfGenerator');
 
@@ -398,8 +399,120 @@ const getCategorySummaryPDF = async (req, res) => {
   }
 };
 
+  /**
+   * @desc    Báo cáo chênh lệch thực tế (từ các phiếu kiểm kê)
+   * @route   GET /api/reports/discrepancy/period/pdf
+   * @access  Private
+   */
+  const getDiscrepancyPeriodPDF = async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
+      const end = endDate ? new Date(endDate) : new Date();
+      end.setHours(23, 59, 59, 999);
+
+      // Find completed inventory checks within period
+      const checks = await InventoryCheck.find({
+        checkDate: { $gte: start, $lte: end },
+        status: 'completed'
+      }).populate('items.product', 'name unit');
+
+      // Aggregate per-product differences
+      const productMap = new Map();
+      let totalExcessQty = 0;
+      let totalShortageQty = 0;
+      let totalExcessValue = 0;
+      let totalShortageValue = 0;
+      let totalChecks = checks.length;
+      let itemsWithDiff = 0;
+
+      for (const chk of checks) {
+        for (const item of chk.items) {
+          const diff = item.difference || (item.actualQuantity - item.systemQuantity) || 0;
+          if (!diff) continue;
+          itemsWithDiff++;
+
+          const prod = item.product || {};
+          const pid = (prod._id && prod._id.toString()) || (item.product ? item.product.toString() : 'unknown');
+          const name = prod.name || item.batchNumber || 'N/A';
+          const unit = prod.unit || '';
+          const cost = item.costPrice || 0;
+          const value = diff * cost;
+
+          if (!productMap.has(pid)) {
+            productMap.set(pid, { name, unit, diffQty: 0, diffValue: 0 });
+          }
+          const ent = productMap.get(pid);
+          ent.diffQty += diff;
+          ent.diffValue += value;
+          productMap.set(pid, ent);
+
+          if (diff > 0) {
+            totalExcessQty += diff;
+            totalExcessValue += value;
+          } else {
+            totalShortageQty += Math.abs(diff);
+            totalShortageValue += Math.abs(value);
+          }
+        }
+      }
+
+      // Build sorted rows by absolute value impact
+      const rowsData = Array.from(productMap.values())
+        .sort((a, b) => Math.abs(b.diffValue) - Math.abs(a.diffValue))
+        .map(r => [r.name, r.diffQty, r.unit, new Intl.NumberFormat('vi-VN').format(Math.round(r.diffValue))]);
+
+      // Totals
+      const totalNetQty = totalExcessQty - totalShortageQty;
+      const totalNetValue = totalExcessValue - totalShortageValue;
+
+      const pdf = new PDFGenerator();
+      pdf.addCompanyHeader(
+        'GREENMART - HỆ THỐNG QUẢN LÝ KHO',
+        '236B Lê Văn Sỹ, Quận Tân Bình, Thành phố Hồ Chí Minh',
+        '0832 493 139'
+      );
+
+      pdf.addReportTitle(
+        'BÁO CÁO CHÊNH LỆCH KIỂM KÊ',
+        `Từ ${start.toLocaleDateString('vi-VN')} đến ${end.toLocaleDateString('vi-VN')}`,
+        'SUMMARY'
+      );
+
+      const reportCode = `DIS-PERIOD-${Date.now().toString().slice(-8)}`;
+      pdf.addReportMeta(new Date(), req.user?.fullName || req.user?.username || 'Hệ thống', reportCode);
+
+      pdf.addSummaryCards([
+        { label: 'Số phiếu kiểm kê', value: totalChecks.toString(), subtitle: 'Đã hoàn tất', color: '#2196F3' },
+        { label: 'Items có chênh lệch', value: itemsWithDiff.toString(), subtitle: 'Mục', color: '#FF9800' },
+        { label: 'Tổng thừa (SL)', value: new Intl.NumberFormat('vi-VN').format(totalExcessQty), subtitle: '', color: '#4CAF50' },
+        { label: 'Tổng thiếu (SL)', value: new Intl.NumberFormat('vi-VN').format(totalShortageQty), subtitle: '', color: '#F44336' },
+      ]);
+
+      pdf.addSectionHeader('CHI TIẾT CHÊNH LỆCH THEO SẢN PHẨM');
+      const headers = ['Sản phẩm', 'Chênh (SL)', 'ĐVT', 'Giá trị (VND)'];
+      const columnWidths = [220, 90, 70, 120];
+      const alignments = ['left', 'right', 'center', 'right'];
+
+      pdf.drawTable(headers, rowsData, columnWidths, { alignments });
+
+      pdf.addFooter(true);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="bao-cao-chenh-lech-${Date.now()}.pdf"`);
+      pdf.doc.pipe(res);
+      pdf.doc.end();
+    } catch (error) {
+      console.error('Error generating discrepancy PDF:', error);
+      return ApiResponse.error(res, 'Lỗi khi tạo báo cáo chênh lệch', 500);
+    }
+  };
+
 module.exports = {
   getPeriodSummaryPDF,
   getInventorySummaryPDF,
-  getCategorySummaryPDF
+  getCategorySummaryPDF,
+  getDiscrepancyPeriodPDF,
 };
+

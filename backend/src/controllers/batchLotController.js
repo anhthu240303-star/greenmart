@@ -210,6 +210,7 @@ exports.listBatchLots = async (req, res) => {
       initialQuantity: it.initialQuantity,
       remainingQuantity: it.remainingQuantity,
       costPrice: it.costPrice,
+      manufacturingDate: it.manufacturingDate,
       expiryDate: it.expiryDate,
       receivedDate: it.receivedDate,
       status: it.status,

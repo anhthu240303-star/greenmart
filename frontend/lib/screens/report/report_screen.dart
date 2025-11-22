@@ -62,7 +62,7 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
-  Future<void> _viewPdfReport(String reportType) async {
+  Future<void> _viewPdfReport(String reportType, {String? customTitle}) async {
     // Map report type to title
     final Map<String, String> reportTitles = {
       'inventory': 'Báo cáo tồn kho',
@@ -134,10 +134,10 @@ class _ReportScreenState extends State<ReportScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => PdfViewerScreen(
-              pdfUrl: url,
-              reportTitle: reportTitles[reportType] ?? 'Báo cáo',
-              reportType: reportType,
-            ),
+                  pdfUrl: url,
+                  reportTitle: customTitle ?? reportTitles[reportType] ?? 'Báo cáo',
+                  reportType: reportType,
+                ),
           ),
         );
       }
@@ -196,7 +196,7 @@ class _ReportScreenState extends State<ReportScreen> {
   }
   
   // Hàm tải xuống PDF (ĐÃ SỬA: SỬ DỤNG getExternalStorageDirectory cho thư mục công cộng)
-  Future<void> _downloadPdfReport(String reportType) async {
+  Future<void> _downloadPdfReport(String reportType, {String? customTitle}) async {
     setState(() {
       _isLoading = true;
       _message = null;
@@ -255,7 +255,8 @@ class _ReportScreenState extends State<ReportScreen> {
         }
 
         final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-        final filePath = '${downloadsDir.path}/bao_cao_${reportType}_$timestamp.pdf';
+        final safeTitle = (customTitle ?? reportType).replaceAll(' ', '_').toLowerCase();
+        final filePath = '${downloadsDir.path}/bao_cao_${safeTitle}_$timestamp.pdf';
         
         final file = File(filePath);
         await file.writeAsBytes(response.bodyBytes);
@@ -351,119 +352,153 @@ class _ReportScreenState extends State<ReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Báo cáo')),
-      body: SingleChildScrollView( 
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Overview / statistics
-            const Text('Thống kê', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            if (_statsLoading) const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())) else
-              _stats != null ?
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.8,
-                children: [
-                  StatCard(title: 'Sản phẩm', value: _stats!.totalProducts.toString(), icon: Icons.inventory_2_outlined),
-                  StatCard(title: 'Danh mục', value: _stats!.totalCategories.toString(), icon: Icons.category_outlined),
-                  StatCard(title: 'Nhà cung cấp', value: _stats!.totalSuppliers.toString(), icon: Icons.local_shipping_outlined),
-                  StatCard(title: 'Sắp hết', value: _stats!.lowStockProducts.toString(), icon: Icons.warning_amber_rounded, color: AppTheme.warning),
-                ],
-              ) : const Text('Không có dữ liệu thống kê'),
-            const SizedBox(height: 16),
-            const Divider(),
-            
-            // Bộ lọc
-            const SizedBox(height: 12),
-            const Text('Bộ lọc', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            
-            // Dropdown Danh mục
-            DropdownButtonFormField<String>(
-              value: _categoryId,
-              decoration: const InputDecoration(labelText: 'Danh mục (tùy chọn)'),
-              items: [
-                const DropdownMenuItem<String>(value: null, child: Text('Tất cả')), 
-                ..._categories.map((c) => DropdownMenuItem<String>(value: c['_id'] ?? c['id'], child: Text(c['name'] ?? ''))),
-              ],
-              onChanged: (v) => setState(() => _categoryId = (v != null && v.isNotEmpty) ? v : null),
-            ),
-            const SizedBox(height: 12),
-            
-            // Dropdown Nhà cung cấp
-            DropdownButtonFormField<String>(
-              value: _supplierId,
-              decoration: const InputDecoration(labelText: 'Nhà cung cấp (tùy chọn)'),
-              items: [
-                const DropdownMenuItem<String>(value: null, child: Text('Tất cả')), 
-                ..._suppliers.map((s) => DropdownMenuItem<String>(value: s['_id'] ?? s['id'], child: Text(s['name'] ?? ''))),
-              ],
-              onChanged: (v) => setState(() => _supplierId = (v != null && v.isNotEmpty) ? v : null),
-            ),
-            const SizedBox(height: 12),
-            
-            // Chọn khoảng thời gian
-            OutlinedButton.icon(
-              onPressed: _selectDateRange,
-              icon: const Icon(Icons.date_range),
-              label: Text(
-                _startDate != null && _endDate != null
-                    ? 'Từ ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}'
-                    : 'Chọn khoảng thời gian',
-              ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-            ),
-            
-            // Nút xóa bộ lọc thời gian
-            if (_startDate != null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => setState(() {
-                    _startDate = null;
-                    _endDate = null;
-                  }),
-                  icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('Xóa bộ lọc'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
+              clipBehavior: Clip.hardEdge,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Thống kê', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    if (_statsLoading)
+                      const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+                    else if (_stats != null)
+                      Row(
+                        children: [
+                          Expanded(child: StatCard(title: 'Sản phẩm', value: _stats!.totalProducts.toString(), icon: Icons.inventory_2_outlined)),
+                          const SizedBox(width: 8),
+                          Expanded(child: StatCard(title: 'Danh mục', value: _stats!.totalCategories.toString(), icon: Icons.category_outlined)),
+                          const SizedBox(width: 8),
+                          Expanded(child: StatCard(title: 'Nhà cung cấp', value: _stats!.totalSuppliers.toString(), icon: Icons.local_shipping_outlined)),
+                          const SizedBox(width: 8),
+                          Expanded(child: StatCard(title: 'Sắp hết', value: _stats!.lowStockProducts.toString(), icon: Icons.warning_amber_rounded, color: AppTheme.warning)),
+                        ],
+                      )
+                    else
+                      const Text('Không có dữ liệu thống kê'),
+                  ],
                 ),
               ),
-            const SizedBox(height: 20),
-            const Divider(),
-            
-            // Báo cáo PDF (ĐÃ CẬP NHẬT BỐ CỤC UI MỚI: Xem & Tải)
-            const SizedBox(height: 12),
-            const Text('Báo cáo PDF', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildPdfReportButtons(),
-            const SizedBox(height: 20),
-            const Divider(),
-            
-            // Xuất CSV
-            const SizedBox(height: 12),
-            const Text('Xuất CSV (Legacy)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(children: [
-              ElevatedButton.icon(
-                onPressed: (_isLoading || _statsLoading) ? null : _exportCsv,
-                icon: const Icon(Icons.download_outlined),
-                label: Text(_isLoading ? 'Đang tạo...' : 'Xuất CSV'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            ),
+
+            // Filters
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Bộ lọc', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _categoryId,
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Danh mục (tùy chọn)'),
+                            items: [
+                              const DropdownMenuItem<String>(value: null, child: Text('Tất cả')),
+                              ..._categories.map((c) => DropdownMenuItem<String>(value: c['_id'] ?? c['id'], child: Text(c['name'] ?? ''))),
+                            ],
+                            onChanged: (v) => setState(() => _categoryId = (v != null && v.isNotEmpty) ? v : null),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _supplierId,
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Nhà cung cấp (tùy chọn)'),
+                            items: [
+                              const DropdownMenuItem<String>(value: null, child: Text('Tất cả')),
+                              ..._suppliers.map((s) => DropdownMenuItem<String>(value: s['_id'] ?? s['id'], child: Text(s['name'] ?? ''))),
+                            ],
+                            onChanged: (v) => setState(() => _supplierId = (v != null && v.isNotEmpty) ? v : null),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _selectDateRange,
+                            icon: const Icon(Icons.date_range),
+                            label: Text(
+                              _startDate != null && _endDate != null
+                                  ? 'Từ ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}'
+                                  : 'Chọn khoảng thời gian',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        if (_startDate != null)
+                          TextButton.icon(
+                            onPressed: () => setState(() {
+                              _startDate = null;
+                              _endDate = null;
+                            }),
+                            icon: const Icon(Icons.clear, size: 18),
+                            label: const Text('Xóa'),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 12),
-              if (_message != null) Expanded(child: Text(_message!, style: const TextStyle(fontSize: 12))),
-            ]),
-            const SizedBox(height: 12),
-            // Đã thay đổi ghi chú về vị trí lưu trữ PDF
-            const Text('Ghi chú: PDF được lưu vào thư mục Downloads công cộng (cần quyền truy cập bộ nhớ ngoài). CSV được lưu vào thư mục riêng của ứng dụng.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-            const SizedBox(height: 20),
+            ),
+
+            // PDF Reports
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Báo cáo PDF', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildPdfReportButtons(),
+                    const SizedBox(height: 8),
+                
+                  ],
+                ),
+              ),
+            ),
+
+            // Export
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: (_isLoading || _statsLoading) ? null : _exportCsv,
+                      icon: const Icon(Icons.download_outlined),
+                      label: Text(_isLoading ? 'Đang tạo...' : 'Xuất CSV'),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    if (_message != null) Expanded(child: Text(_message!, style: const TextStyle(fontSize: 12))),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -478,6 +513,13 @@ class _ReportScreenState extends State<ReportScreen> {
         'color': Colors.blue,
         'type': 'summary/period',
         'desc': 'Tổng nhập/xuất, tồn kho, chênh lệch theo ngày/tuần/tháng/năm',
+      },
+      {
+        'title': 'Báo cáo chênh lệch',
+        'icon': Icons.balance,
+        'color': Colors.red,
+        'type': 'discrepancy/period',
+        'desc': 'Báo cáo chênh lệch kiểm kê theo kỳ',
       },
       {
         'title': 'Tồn kho tổng hợp',
@@ -518,82 +560,87 @@ class _ReportScreenState extends State<ReportScreen> {
       },
     ];
 
-    Widget buildGroup(String groupTitle, List<Map<String, dynamic>> reports) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(groupTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.2,
-            children: reports.map((report) {
-              final Color color = report['color'] as Color;
-              return Card(
+    
+
+    // Use LayoutBuilder once to compute tile width and create a responsive grid
+    Widget buildTiles(List<Map<String, dynamic>> reports) {
+      return LayoutBuilder(builder: (context, constraints) {
+        const double spacing = 12.0;
+        const double minTileWidth = 140.0;
+        // decide number of columns based on available width
+        final int columns = (constraints.maxWidth >= (minTileWidth * 2 + spacing)) ? 2 : 1;
+        final double totalSpacing = spacing * (columns - 1);
+        final double tileWidth = (constraints.maxWidth - totalSpacing) / columns;
+        final double finalTileWidth = tileWidth.clamp(minTileWidth, constraints.maxWidth);
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: reports.map((report) {
+            final Color color = report['color'] as Color;
+            return SizedBox(
+              width: finalTileWidth,
+              child: Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: color.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: color.withOpacity(0.2)),
                 ),
-                color: color.withOpacity(0.08),
+                color: color.withOpacity(0.04),
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(report['icon'] as IconData, size: 28, color: color),
+                          Icon(report['icon'] as IconData, size: 22, color: color),
                           const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              report['title'] as String,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
-                            ),
-                          ),
+                          Flexible(child: Text(report['title'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color))),
                         ],
                       ),
+                      const SizedBox(height: 6),
                       Text(report['desc'] as String, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           TextButton.icon(
-                            onPressed: _isLoading ? null : () => _viewPdfReport(report['type'] as String),
-                            icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
+                            onPressed: _isLoading ? null : () => _viewPdfReport(report['type'] as String, customTitle: report['title'] as String),
+                            icon: const Icon(Icons.remove_red_eye_outlined, size: 16),
                             label: const Text('Xem'),
-                            style: TextButton.styleFrom(foregroundColor: color),
+                            style: TextButton.styleFrom(foregroundColor: color, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
                           ),
-                          const SizedBox(height: 18, child: VerticalDivider(color: Colors.grey)),
                           TextButton.icon(
-                            onPressed: _isLoading ? null : () => _downloadPdfReport(report['type'] as String),
-                            icon: const Icon(Icons.file_download_outlined, size: 18),
+                            onPressed: _isLoading ? null : () => _downloadPdfReport(report['type'] as String, customTitle: report['title'] as String),
+                            icon: const Icon(Icons.file_download_outlined, size: 16),
                             label: const Text('Tải'),
-                            style: TextButton.styleFrom(foregroundColor: color),
+                            style: TextButton.styleFrom(foregroundColor: color, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 18),
-        ],
-      );
+              ),
+            );
+          }).toList(),
+        );
+      });
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildGroup('BÁO CÁO TỔNG HỢP', summaryReports),
-        buildGroup('BÁO CÁO CHI TIẾT', detailReports),
+        const SizedBox(height: 6),
+        const Text('BÁO CÁO TỔNG HỢP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        buildTiles(summaryReports),
+        const SizedBox(height: 12),
+        const Text('BÁO CÁO CHI TIẾT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        buildTiles(detailReports),
       ],
     );
   }

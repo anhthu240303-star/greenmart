@@ -25,6 +25,9 @@ router.use(protect);
 // Báo cáo tổng hợp theo kỳ (ngày/tuần/tháng/năm)
 router.get('/summary/period/pdf', summaryReportController.getPeriodSummaryPDF);
 
+// Báo cáo chênh lệch kiểm kê theo kỳ (dùng các phiếu kiểm kê hoàn tất)
+router.get('/discrepancy/period/pdf', summaryReportController.getDiscrepancyPeriodPDF);
+
 // Báo cáo tồn kho tổng hợp (theo danh mục)
 router.get('/summary/inventory/pdf', summaryReportController.getInventorySummaryPDF);
 

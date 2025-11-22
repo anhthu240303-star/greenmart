@@ -134,6 +134,41 @@ class _ItemLineWidgetState extends State<ItemLineWidget> {
     super.dispose();
   }
 
+  // Robust date parser: accepts DateTime, numeric (ms since epoch), numeric string, or ISO string
+  DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
+    if (v is double) return DateTime.fromMillisecondsSinceEpoch(v.toInt());
+    final s = v.toString();
+    final digitsOnly = RegExp(r'^\d{10,}$');
+    if (digitsOnly.hasMatch(s)) {
+      try {
+        final ms = int.parse(s);
+        return DateTime.fromMillisecondsSinceEpoch(ms);
+      } catch (_) {}
+    }
+    try {
+      return DateTime.tryParse(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Try multiple possible keys and nested locations to find a date-like value
+  dynamic _findDateField(Map<String, dynamic>? obj, List<String> keys) {
+    if (obj == null) return null;
+    for (final k in keys) {
+      if (obj.containsKey(k) && obj[k] != null) return obj[k];
+    }
+    // try nested locations that are common
+    for (final k in keys) {
+      if (obj['stockIn'] is Map && (obj['stockIn'] as Map).containsKey(k) && (obj['stockIn'] as Map)[k] != null) return (obj['stockIn'] as Map)[k];
+      if (obj['product'] is Map && (obj['product'] as Map).containsKey(k) && (obj['product'] as Map)[k] != null) return (obj['product'] as Map)[k];
+    }
+    return null;
+  }
+
   Future<void> _showDateError(String message) async {
     if (!mounted) return;
     await showDialog<void>(
@@ -250,20 +285,19 @@ class _ItemLineWidgetState extends State<ItemLineWidget> {
     DateTime? bestDate;
     for (final b in batches) {
       DateTime? d;
-      // try receivedDate
       try {
-        if (b['receivedDate'] != null) d = DateTime.tryParse(b['receivedDate'].toString());
+        if (b['receivedDate'] != null) d = _parseDate(b['receivedDate']);
       } catch (_) {}
-      // fallback to manufacturingDate
       if (d == null) {
         try {
-          if (b['manufacturingDate'] != null) d = DateTime.tryParse(b['manufacturingDate'].toString());
+          final mfgVal = _findDateField(b, ['manufacturingDate', 'manufacturedDate', 'mfgDate', 'mfg_date', 'mfg']);
+          if (mfgVal != null) d = _parseDate(mfgVal);
         } catch (_) {}
       }
-      // fallback to expiryDate (choose earlier expiry as tie-breaker)
       if (d == null) {
         try {
-          if (b['expiryDate'] != null) d = DateTime.tryParse(b['expiryDate'].toString());
+          final expVal = _findDateField(b, ['expiryDate', 'expireDate', 'expDate', 'expiry_date']);
+          if (expVal != null) d = _parseDate(expVal);
         } catch (_) {}
       }
 
@@ -294,14 +328,16 @@ class _ItemLineWidgetState extends State<ItemLineWidget> {
         widget.line.batchRemaining = null;
       }
       try {
-        final mfg = selected['manufacturingDate'] ?? selected['manufacturedDate'];
-        final exp = selected['expiryDate'] ?? selected['expireDate'];
-        if (mfg != null) {
-          widget.line.manufacturingDate = DateTime.parse(mfg.toString());
+        final mfgVal = _findDateField(selected, ['manufacturingDate', 'manufacturedDate', 'mfgDate', 'mfg_date', 'mfg', 'mfgTimestamp']);
+        final expVal = _findDateField(selected, ['expiryDate', 'expireDate', 'expDate', 'expiry_date']);
+        final parsedMfg = _parseDate(mfgVal);
+        final parsedExp = _parseDate(expVal);
+        if (parsedMfg != null) {
+          widget.line.manufacturingDate = parsedMfg;
           _mfgCtrl.text = DateFormat('dd/MM/yyyy').format(widget.line.manufacturingDate!);
         }
-        if (exp != null) {
-          widget.line.expiryDate = DateTime.parse(exp.toString());
+        if (parsedExp != null) {
+          widget.line.expiryDate = parsedExp;
           _expCtrl.text = DateFormat('dd/MM/yyyy').format(widget.line.expiryDate!);
         }
       } catch (_) {}
@@ -309,7 +345,15 @@ class _ItemLineWidgetState extends State<ItemLineWidget> {
     });
     if (showToast && mounted) {
       final bn = widget.line.batchNumber ?? '';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã tự chọn lô $bn (FIFO)')));
+      // Debug: show basic info about selected batch (raw fields) so we can confirm server payload
+      final rawMfg = (selected['manufacturingDate'] ?? selected['manufacturedDate'])?.toString();
+      final rawExp = (selected['expiryDate'] ?? selected['expireDate'])?.toString();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã tự chọn lô $bn (FIFO) — NSX: ${rawMfg ?? 'null'} — HSD: ${rawExp ?? 'null'}')));
+      // Also print full payload to console for debugging
+      try {
+        // ignore: avoid_print
+        print('[DEBUG] Selected batch payload: $selected');
+      } catch (_) {}
     }
   }
 
@@ -520,14 +564,16 @@ class _ItemLineWidgetState extends State<ItemLineWidget> {
                 }
                 // set dates
                 try {
-                  final mfg = selected['manufacturingDate'] ?? selected['manufacturedDate'];
-                  final exp = selected['expiryDate'] ?? selected['expireDate'];
-                  if (mfg != null) {
-                    widget.line.manufacturingDate = DateTime.parse(mfg.toString());
+                  final mfgVal = _findDateField(selected, ['manufacturingDate', 'manufacturedDate', 'mfgDate', 'mfg_date', 'mfg', 'mfgTimestamp']);
+                  final expVal = _findDateField(selected, ['expiryDate', 'expireDate', 'expDate', 'expiry_date']);
+                  final parsedMfg = _parseDate(mfgVal);
+                  final parsedExp = _parseDate(expVal);
+                  if (parsedMfg != null) {
+                    widget.line.manufacturingDate = parsedMfg;
                     _mfgCtrl.text = DateFormat('dd/MM/yyyy').format(widget.line.manufacturingDate!);
                   }
-                  if (exp != null) {
-                    widget.line.expiryDate = DateTime.parse(exp.toString());
+                  if (parsedExp != null) {
+                    widget.line.expiryDate = parsedExp;
                     _expCtrl.text = DateFormat('dd/MM/yyyy').format(widget.line.expiryDate!);
                   }
                 } catch (_) {}

@@ -19,18 +19,59 @@ class PDFGenerator {
     });
     this.pageWidth = this.doc.page.width - 80; // margin left + right
     
-    // Đăng ký font Arial từ Windows hỗ trợ Tiếng Việt
-    try {
-      const arialPath = 'C:\\Windows\\Fonts\\arial.ttf';
-      const arialBoldPath = 'C:\\Windows\\Fonts\\arialbd.ttf';
-      if (fs.existsSync(arialPath)) {
-        this.doc.registerFont('Arial', arialPath);
+    // Register fonts that support Vietnamese (try system locations, then warn)
+    this.regularFont = 'GM-Regular';
+    this.boldFont = 'GM-Bold';
+    this.italicFont = 'GM-Italic';
+
+    const candidateFonts = [];
+    // Windows
+    candidateFonts.push({ regular: 'C:\\Windows\\Fonts\\arial.ttf', bold: 'C:\\Windows\\Fonts\\arialbd.ttf', italic: 'C:\\Windows\\Fonts\\ariali.ttf' });
+    // Linux (DejaVu)
+    candidateFonts.push({ regular: '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', bold: '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', italic: '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf' });
+    // macOS
+    candidateFonts.push({ regular: '/Library/Fonts/Arial.ttf', bold: '/Library/Fonts/Arial Bold.ttf', italic: '/Library/Fonts/Arial Italic.ttf' });
+
+    let registered = false;
+    for (const cand of candidateFonts) {
+      try {
+        if (cand.regular && fs.existsSync(cand.regular)) {
+          this.doc.registerFont(this.regularFont, cand.regular);
+          if (cand.bold && fs.existsSync(cand.bold)) {
+            this.doc.registerFont(this.boldFont, cand.bold);
+          }
+          if (cand.italic && fs.existsSync(cand.italic)) {
+            this.doc.registerFont(this.italicFont, cand.italic);
+          }
+          registered = true;
+          break;
+        }
+      } catch (err) {
+        // continue to next candidate
       }
-      if (fs.existsSync(arialBoldPath)) {
-        this.doc.registerFont('Arial-Bold', arialBoldPath);
-      }
-    } catch (error) {
-      console.log('Không thể tải font Arial, sử dụng font mặc định');
+    }
+
+    if (!registered) {
+      // Try to load from project folder backend/fonts if available
+      const localReg = path.join(__dirname, '..', 'fonts', 'DejaVuSans.ttf');
+      const localBold = path.join(__dirname, '..', 'fonts', 'DejaVuSans-Bold.ttf');
+      const localItalic = path.join(__dirname, '..', 'fonts', 'DejaVuSans-Oblique.ttf');
+      try {
+        if (fs.existsSync(localReg)) {
+          this.doc.registerFont(this.regularFont, localReg);
+          if (fs.existsSync(localBold)) this.doc.registerFont(this.boldFont, localBold);
+          if (fs.existsSync(localItalic)) this.doc.registerFont(this.italicFont, localItalic);
+          registered = true;
+        }
+      } catch (err) {}
+    }
+
+    if (!registered) {
+      console.warn('[PDFGenerator] Không tìm thấy font hệ thống hỗ trợ Tiếng Việt. Vui lòng cài Arial/DejaVu hoặc đặt ttf vào `backend/fonts/` để đảm bảo hiển thị tiếng Việt chính xác. Sẽ sử dụng font mặc định (có thể không hiển thị dấu).');
+      // fallback to built-in fonts names (these don't support Vietnamese diacritics reliably)
+      this.regularFont = 'Helvetica';
+      this.boldFont = 'Helvetica-Bold';
+      this.italicFont = 'Helvetica-Oblique';
     }
   }
 
@@ -52,12 +93,12 @@ class PDFGenerator {
     this.doc
       .fillColor('#1a1a1a')
       .fontSize(14)
-      .font('Arial-Bold')
+      .font(this.boldFont)
       .text(companyName, 110, topMargin, { width: 400 });
     
     this.doc
       .fontSize(8)
-      .font('Arial')
+      .font(this.regularFont)
       .fillColor('#555')
       .text(address, 110, topMargin + 18)
       .text(`Điện thoại: ${phone} ${taxCode ? `| Mã số thuế: ${taxCode}` : ''}`, 110, topMargin + 30);
@@ -96,21 +137,21 @@ class PDFGenerator {
     this.doc
       .fontSize(9)
       .fillColor('white')
-      .font('Arial-Bold')
+      .font(this.boldFont)
       .text(reportType.replace('_', ' '), 40, y + 6, { width: 100, align: 'center' });
 
     // Main title
     this.doc
       .fontSize(18)
       .fillColor('#1a1a1a')
-      .font('Arial-Bold')
+      .font(this.boldFont)
       .text(title, 150, y, { width: this.pageWidth - 110 });
 
     if (subtitle) {
       this.doc
         .fontSize(11)
         .fillColor('#666')
-        .font('Arial')
+        .font(this.regularFont)
         .text(subtitle, 150, y + 22, { width: this.pageWidth - 110 });
     }
 
@@ -140,7 +181,7 @@ class PDFGenerator {
     this.doc
       .fontSize(8)
       .fillColor('#666')
-      .font('Arial')
+      .font(this.regularFont)
       .text('Ngày tạo báo cáo', leftCol + 15, y + 13);
     
     const dateStr = date.toLocaleString('vi-VN', {
@@ -154,7 +195,7 @@ class PDFGenerator {
     this.doc
       .fontSize(10)
       .fillColor('#1a1a1a')
-      .font('Arial-Bold')
+      .font(this.boldFont)
       .text(dateStr, leftCol + 15, y + 26);
 
     // Người tạo
@@ -166,13 +207,13 @@ class PDFGenerator {
       this.doc
         .fontSize(8)
         .fillColor('#666')
-        .font('Arial')
+        .font(this.regularFont)
         .text('Nguời tạo', rightCol + 15, y + 13);
       
       this.doc
         .fontSize(10)
         .fillColor('#1a1a1a')
-        .font('Arial-Bold')
+        .font(this.boldFont)
         .text(createdBy, rightCol + 15, y + 26);
     }
 
@@ -181,7 +222,7 @@ class PDFGenerator {
       this.doc
         .fontSize(8)
         .fillColor('#666')
-        .font('Arial')
+        .font(this.regularFont)
         .text(`Mã báo cáo: ${reportCode}`, leftCol + 15, y + 45);
     }
 
@@ -209,7 +250,7 @@ class PDFGenerator {
       .roundedRect(startX, startY, this.pageWidth, headerHeight, 3)
       .fillAndStroke(headerBgColor, headerBgColor);
 
-    this.doc.fontSize(9).fillColor(headerTextColor).font('Arial-Bold');
+    this.doc.fontSize(9).fillColor(headerTextColor).font(this.boldFont);
 
     let currentX = startX;
     headers.forEach((header, i) => {
@@ -222,7 +263,7 @@ class PDFGenerator {
     });
 
     startY += headerHeight;
-    this.doc.font('Arial').fontSize(9);
+    this.doc.font(this.regularFont).fontSize(9);
 
     // Rows
     rows.forEach((row, rowIndex) => {
@@ -236,7 +277,7 @@ class PDFGenerator {
           .roundedRect(startX, startY, this.pageWidth, headerHeight, 3)
           .fillAndStroke(headerBgColor, headerBgColor);
 
-        this.doc.fontSize(9).fillColor(headerTextColor).font('Arial-Bold');
+        this.doc.fontSize(9).fillColor(headerTextColor).font(this.boldFont);
         currentX = startX;
         headers.forEach((header, i) => {
           const align = alignments[i] || (i === 0 ? 'left' : 'center');
@@ -248,7 +289,7 @@ class PDFGenerator {
         });
 
         startY += headerHeight;
-        this.doc.font('Arial').fontSize(9);
+        this.doc.font(this.regularFont).fontSize(9);
       }
 
       // Row background
@@ -267,11 +308,11 @@ class PDFGenerator {
       row.forEach((cell, i) => {
         const align = alignments[i] || (i === 0 ? 'left' : 'right');
         const textColor = i === row.length - 1 ? '#1a1a1a' : '#333';
-        const fontWeight = i === row.length - 1 ? 'Arial-Bold' : 'Helvetica';
+        const fontToUse = i === row.length - 1 ? this.boldFont : this.regularFont;
 
         this.doc
           .fillColor(textColor)
-          .font(fontWeight)
+          .font(fontToUse)
           .text(String(cell ?? '-'), currentX + 8, startY + 9, {
             width: columnWidths[i] - 16,
             align
@@ -314,20 +355,20 @@ class PDFGenerator {
       this.doc
         .fontSize(8)
         .fillColor('#666')
-        .font('Arial')
+        .font(this.regularFont)
         .text(item.label, x + 45, y + 15, { width: cardWidth - 55 });
 
       this.doc
         .fontSize(16)
         .fillColor('#1a1a1a')
-        .font('Arial-Bold')
+        .font(this.boldFont)
         .text(item.value, x + 45, y + 30, { width: cardWidth - 55 });
 
       if (item.subtitle) {
         this.doc
           .fontSize(7)
           .fillColor('#999')
-          .font('Arial')
+          .font(this.regularFont)
           .text(item.subtitle, x + 45, y + 50, { width: cardWidth - 55 });
       }
     });
@@ -348,7 +389,7 @@ class PDFGenerator {
     this.doc
       .fontSize(13)
       .fillColor('#1a1a1a')
-      .font('Arial-Bold')
+      .font(this.boldFont)
       .text(title, 55, y + 3);
 
     this.doc.moveDown(1.5);
@@ -357,24 +398,7 @@ class PDFGenerator {
 
   // Watermark
   addWatermark(text = 'GREENMART') {
-    const pages = this.doc.bufferedPageRange();
-    for (let i = 0; i < pages.count; i++) {
-      this.doc.switchToPage(i);
-
-      this.doc
-        .save()
-        .rotate(45, { origin: [this.doc.page.width / 2, this.doc.page.height / 2] })
-        .fontSize(60)
-        .fillColor('#f8f8f8')
-        .opacity(0.25)
-        .font('Arial-Bold')
-        .text(text, 0, this.doc.page.height / 2 - 40, {
-          width: this.doc.page.width,
-          align: 'center'
-        })
-        .opacity(1)
-        .restore();
-    }
+    // Watermark removed by request — keep method to preserve API but do nothing.
     return this;
   }
 
@@ -395,7 +419,7 @@ class PDFGenerator {
       this.doc
         .fontSize(8)
         .fillColor('#999')
-        .font('Arial')
+        .font(this.regularFont)
         .text(`Trang ${i + 1} / ${pages.count}`, 40, bottomY + 8, {
           align: 'center',
           width: this.doc.page.width - 80
@@ -403,6 +427,7 @@ class PDFGenerator {
 
       this.doc
         .fontSize(7)
+        .font(this.regularFont)
         .text(`© ${new Date().getFullYear()} GreenMart - Hệ thống quản lý kho chuyên nghiệp`,
           40, bottomY + 22,
           { align: 'center', width: this.doc.page.width - 80 }
@@ -419,18 +444,18 @@ class PDFGenerator {
           { title: 'Giám đốc', name: '(Ký, ghi rõ họ tên)' }
         ];
 
-        signatures.forEach((sig, idx) => {
+          signatures.forEach((sig, idx) => {
           const x = 40 + idx * colWidth;
           this.doc
             .fontSize(9)
             .fillColor('#333')
-            .font('Arial-Bold')
+            .font(this.boldFont)
             .text(sig.title, x, sigY, { width: colWidth, align: 'center' });
           
           this.doc
             .fontSize(7)
             .fillColor('#999')
-            .font('Helvetica-Oblique')
+            .font(this.italicFont)
             .text(sig.name, x, sigY + 15, { width: colWidth, align: 'center' });
         });
       }
@@ -442,6 +467,13 @@ class PDFGenerator {
   save(filePath) {
     return new Promise((resolve, reject) => {
       const stream = fs.createWriteStream(filePath);
+      // Try to trim any accidental empty trailing page before finalizing
+      try {
+        this._removeEmptyTrailingPage();
+      } catch (err) {
+        // don't block saving on trim errors
+      }
+
       this.doc.pipe(stream);
       this.doc.end();
       
@@ -452,6 +484,11 @@ class PDFGenerator {
 
   // Pipe trực tiếp ra response
   pipe(res) {
+    // ensure trailing empty pages trimmed before piping
+    try {
+      this._removeEmptyTrailingPage();
+    } catch (err) {}
+
     this.doc.pipe(res);
     return this;
   }
@@ -459,6 +496,77 @@ class PDFGenerator {
   end() {
     this.doc.end();
     return this;
+  }
+
+  // Best-effort: remove trailing empty page if the last page has almost no content
+  _removeEmptyTrailingPage() {
+    try {
+      const pagesRef = this.doc._root && this.doc._root.data && this.doc._root.data.Pages;
+      if (!pagesRef || !pagesRef.data) return;
+
+      const kids = pagesRef.data.Kids;
+      if (!Array.isArray(kids) || kids.length < 2) return; // keep at least one page
+
+      const lastRef = kids[kids.length - 1];
+      const lastPage = lastRef && lastRef.data;
+      if (!lastPage) return;
+
+      // If the page has no Contents or very small Contents array, consider it empty.
+      const contents = lastPage.Contents;
+
+      // Helper to estimate stream size (best-effort across pdfkit internal shapes)
+      const estimateStreamSize = (streamRef) => {
+        try {
+          if (!streamRef) return 0;
+          const data = streamRef.data || streamRef._data || streamRef;
+          if (!data) return 0;
+          if (Buffer.isBuffer(data)) return data.length;
+          if (typeof data === 'string') return data.length;
+          if (Array.isArray(data)) {
+            return data.reduce((s, it) => {
+              if (!it) return s;
+              if (Buffer.isBuffer(it)) return s + it.length;
+              if (typeof it === 'string') return s + it.length;
+              if (it.length) return s + it.length;
+              return s;
+            }, 0);
+          }
+          if (data.chunks && Array.isArray(data.chunks)) {
+            return data.chunks.reduce((s, c) => s + (c ? (c.length || 0) : 0), 0);
+          }
+          if (data._chunks && Array.isArray(data._chunks)) {
+            return data._chunks.reduce((s, c) => s + (c ? (c.length || 0) : 0), 0);
+          }
+          if (typeof data.length === 'number') return data.length;
+        } catch (e) {}
+        return 0;
+      };
+
+      let totalSize = 0;
+      if (!contents) {
+        totalSize = 0;
+      } else if (Array.isArray(contents)) {
+        totalSize = contents.reduce((s, c) => s + estimateStreamSize(c), 0);
+      } else {
+        totalSize = estimateStreamSize(contents);
+      }
+
+      // If total stream size is very small (heuristic threshold), remove page.
+      // Threshold tuned to treat pages that only contain footer/watermark as empty: 300 bytes
+      if (totalSize < 300) {
+        kids.pop();
+        pagesRef.data.Count = kids.length;
+        if (Array.isArray(this.doc._pageBuffer)) {
+          this.doc._pageBuffer.pop();
+        }
+        if (Array.isArray(this.doc._pages)) {
+          this.doc._pages.pop();
+        }
+        // console.info('[PDFGenerator] Removed trailing nearly-empty page (size=' + totalSize + ')');
+      }
+    } catch (err) {
+      // ignore internals errors
+    }
   }
 }
 

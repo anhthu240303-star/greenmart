@@ -92,7 +92,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
-  // Legacy infinite loader removed; use _loadProductsPage(page)
+
 
   // local filtering removed in favor of server-side search/pagination
 
